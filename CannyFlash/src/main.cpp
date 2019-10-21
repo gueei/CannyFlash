@@ -15,8 +15,6 @@
 #include "spi.h"
 #include "Canbus.h"
 
-#define CANCFG1		MCP_8MHz_1000kBPS_CFG1
-
 #define CAN_ID		0x0B1
 #define TXBUFSIZE	10
 #define RXBUFSIZE	130
@@ -27,8 +25,6 @@ int main(void); //__attribute__((section(".init9")));
 void flush(bool ackRequired);
 void putch(uint8_t ch);
 void programStart();
-void inSync();
-void noSync();
 uint8_t getch();
 void getNch(uint8_t N);
 
@@ -237,6 +233,6 @@ void programStart(){
 	// JUMP to 0x0000
 	// Clear Reset bits
 	//wdt_disable();
-	//asm volatile("jmp 0x0000");
+	asm volatile("jmp 0x0000");
 }
 
