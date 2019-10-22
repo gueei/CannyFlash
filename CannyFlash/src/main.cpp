@@ -7,7 +7,6 @@
 
 #include <avr/io.h>
 #include <avr/boot.h>
-#include <avr/wdt.h>
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -21,12 +20,25 @@
 #define CANNYFLASH_MAJOR_VER	1
 #define CANNYFLASH_MINOR_VER	0
 
+/* Watchdog settings */
+#define WATCHDOG_OFF    (0)
+#define WATCHDOG_16MS   (_BV(WDE))
+#define WATCHDOG_32MS   (_BV(WDP0) | _BV(WDE))
+#define WATCHDOG_64MS   (_BV(WDP1) | _BV(WDE))
+#define WATCHDOG_125MS  (_BV(WDP1) | _BV(WDP0) | _BV(WDE))
+#define WATCHDOG_250MS  (_BV(WDP2) | _BV(WDE))
+#define WATCHDOG_500MS  (_BV(WDP2) | _BV(WDP0) | _BV(WDE))
+#define WATCHDOG_1S     (_BV(WDP2) | _BV(WDP1) | _BV(WDE))
+#define WATCHDOG_2S     (_BV(WDP2) | _BV(WDP1) | _BV(WDP0) | _BV(WDE))
+
 int main(void); //__attribute__((section(".init9")));
 void flush(bool ackRequired);
 void putch(uint8_t ch);
-void programStart();
+inline void programStart();
 uint8_t getch();
 void getNch(uint8_t N);
+void watchdogReset();
+void watchdogConfig(uint8_t x);
 
 uint8_t txbuf[TXBUFSIZE];
 uint8_t txHead=0, txTail = 0;
@@ -92,33 +104,73 @@ void getNch(uint8_t N){
 
 void verifySpace() {
 	if (getch() != CRC_EOP) {
-//		watchdogConfig(WATCHDOG_16MS);    // shorten WD timeout
+		watchdogConfig(WATCHDOG_16MS);   // shorten WD timeout
 		while (1)			      // and busy-loop so that WD causes
-		;				      //  a reset and app start.
+		;						  //  a reset and app start.
 	}
 	putch(STK_INSYNC);
 }
 
 int main(void)
 {
-	uint16_t address = 0;
-	uint8_t  length = 0;
+	uint8_t MCUSR_Initial = MCUSR;
+	/* Clear WDRF in MCUSR */
+	MCUSR = 0;
+	WDTCSR |= (1<<WDCE) | (1<<WDE);
+	WDTCSR = 0;
+	
+	
+	if (MCUSR_Initial & _BV(WDRF)){
+		/* 
+		* save the reset flags in the designated register
+		* This can be saved in a main program by putting code in .init0 (which
+		* executes before normal c init code) to save R2 to a global variable.
+		*/
+		__asm__ __volatile__ ("mov r2, %0\n" :: "r" (MCUSR_Initial));
+		watchdogConfig(WATCHDOG_OFF);
+		programStart();
+	}
 
-	// uint8_t buf[8];
+	register uint16_t address = 0;
+	register uint8_t  length = 0;
+
 	SPI::init();
 	Canbus::init();
 	
-	// Canbus::sendPacket(0x2AB, buf, 8);
 	
+	putch(MCUSR_Initial);
 	putch(MCUSR);
 	putch(WDTCSR);
+	putch(WDRF);
 	putch(Canbus::msgAvailable());
+	putch(Canbus::ackReceived());
 	
-	//wdt_enable(WDTO_4S);
 	flush(false);
-		
+
+
+	watchdogConfig(WATCHDOG_2S);
+	
+	// If no ack received, watchdog will timeout and cause reset
+	while(!Canbus::ackReceived()){
+		asm volatile("nop; \n");
+	}
+	Canbus::clearAck();
+	
+	watchdogConfig(WATCHDOG_OFF);
+	putch('C');
+	putch('A');
+	putch('N');
+	putch('N');
+	putch('Y');
+	putch('v');
+	putch('1');
+	
+	flush(false);
+	
+	
     for(;;)
     {
+		
 		uint8_t ch = getch();
 		if (ch==STK_GET_SYNC) {
 			verifySpace();
@@ -211,7 +263,7 @@ int main(void)
 		}
 		else if (ch == STK_LEAVE_PROGMODE) { 
 			// Adaboot no-wait mod
-			// watchdogConfig(WATCHDOG_16MS);
+			watchdogConfig(WATCHDOG_16MS);
 			verifySpace();
 		} else if (ch==0xFF){
 			while(getch()!=0x20);
@@ -236,3 +288,26 @@ void programStart(){
 	asm volatile("jmp 0x0000");
 }
 
+// Watchdog functions. These are only safe with interrupts turned off.
+void watchdogReset() {
+	__asm__ __volatile__ (
+	"wdr\n"
+	);
+}
+
+void watchdogConfig(uint8_t x) {
+	#ifdef WDCE //does it have a Watchdog Change Enable?
+	#ifdef WDTCSR
+	WDTCSR = _BV(WDCE) | _BV(WDE);
+	#else
+	WDTCR= _BV(WDCE) | _BV(WDE);
+	#endif
+	#else //then it must be one of those newfangled ones that use CCP
+	CCP=0xD8; //so write this magic number to CCP
+	#endif
+	#ifdef WDTCSR
+	WDTCSR = x;
+	#else
+	WDTCR= x;
+	#endif
+}
