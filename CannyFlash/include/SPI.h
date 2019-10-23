@@ -10,6 +10,7 @@
 #define SPI_H_
 
 #include <inttypes.h>
+#include <Configuration.h>
 
 class SPI{
 	

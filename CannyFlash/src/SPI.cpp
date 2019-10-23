@@ -7,11 +7,12 @@
 
 #include "SPI.h"
 #include <avr/io.h>
+#include "Configuration.h"
 
 void SPI::init(){
-	DDRB |= _BV(2);
+	SPI_DDR |= _BV(SS);
 	SPCR |= _BV(MSTR) | _BV(SPE) | _BV(SPR0);
-	DDRB |= _BV(3) | _BV(5);
+	SPI_PORT |= _BV(SCK) | _BV(MOSI);
 }
 		
 int8_t SPI::send(uint8_t data){

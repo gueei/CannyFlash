@@ -9,6 +9,9 @@
 #include "SPI.h"
 
 void Canbus::init(){
+	// CS Pin OUTPUT
+	MCP_CS_DDR	|= _BV(MCP_CS_PIN);
+	
 	SELECT;
 	SPI::send(MCP_RESET);
 	DESELECT;

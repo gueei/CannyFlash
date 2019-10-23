@@ -21,17 +21,13 @@
 #endif
 
 #if defined (MCP2515_CLOCK_16MHz)
-#define MCP_CNF1_CFG	MCP_16MHz_1000kBPS_CFG1
-#define MCP_CNF2_CFG	MCP_16MHz_1000kBPS_CFG2
-#define MCP_CNF3_CFG	MCP_16MHz_1000kBPS_CFG3
+#define MCP_CNF1_CFG	MCP_16MHz_500kBPS_CFG1
+#define MCP_CNF2_CFG	MCP_16MHz_500kBPS_CFG2
+#define MCP_CNF3_CFG	MCP_16MHz_500kBPS_CFG3
 #endif
 
-
-// Digital Pin 10
-#if defined (__AVR_ATmega328P__)
-#define SELECT		PORTB &= ~_BV(2)
-#define DESELECT	PORTB |= _BV(2)
-#endif
+#define SELECT		MCP_CS_PORT &= ~_BV(MCP_CS_PIN)
+#define DESELECT	MCP_CS_PORT |= _BV(MCP_CS_PIN)
 
 #define ACK_ID			0x1AC
 #define ACK_SIDH		(ACK_ID >> 3) & 0xFF
