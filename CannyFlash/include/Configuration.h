@@ -21,6 +21,13 @@
 #define MOSI		3
 #endif
 
+#if defined (__AVR_ATmega32U4__)
+#define SPI_DDR		DDRB
+#define SPI_PORT	PORTB
+#define SS			0
+#define SCK			1
+#define MOSI		2
+#endif
 
 // Digital Pin 10 on UNO and Leonardo
 #if defined (__AVR_ATmega328P__)
