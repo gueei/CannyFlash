@@ -9,8 +9,8 @@
 #ifndef CONFIGURATION_H_
 #define CONFIGURATION_H_
 
-#define MCP2515_CLOCK_8MHz
-// #define MCP2515_CLOCK_16MHz
+//#define MCP2515_CLOCK_8MHz
+#define MCP2515_CLOCK_16MHz
 
 
 #if defined (__AVR_ATmega328P__)
@@ -27,6 +27,7 @@
 #define SS			0
 #define SCK			1
 #define MOSI		2
+#define PRR			PRR0
 #endif
 
 // Digital Pin 10 on UNO and Leonardo

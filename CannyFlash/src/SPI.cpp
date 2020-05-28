@@ -10,8 +10,10 @@
 #include "Configuration.h"
 
 void SPI::init(){
-	SPI_DDR |= _BV(SS);
-	SPCR |= _BV(MSTR) | _BV(SPE) | _BV(SPR0);
+    //disable power reduction to allow SPI:
+	PRR &= ~_BV(PRSPI);
+	SPI_DDR |= _BV(SS) | _BV(SCK) | _BV(MOSI);
+	SPCR = _BV(MSTR) | _BV(SPE) | _BV(SPR0);
 	SPI_PORT |= _BV(SCK) | _BV(MOSI);
 }
 		

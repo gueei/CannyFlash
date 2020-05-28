@@ -46,7 +46,7 @@ class Canbus{
 		static void readPacket(uint8_t *buf);
 		static bool ackReceived();
 		static void clearAck();
-		static void sendAck();
+		static void sendAck(uint8_t byteReceived);
 };
 
 

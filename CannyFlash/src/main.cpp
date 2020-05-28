@@ -70,9 +70,9 @@ void flush(bool ackRequired){
 		txHead = (txHead) % TXBUFSIZE;
 		len++;
 	}
+	Canbus::sendPacket(CAN_ID, buf, len);
 	if (ackRequired)
 		while(!Canbus::ackReceived());
-	Canbus::sendPacket(CAN_ID, buf, len);
 	Canbus::clearAck();
 }
 
@@ -111,6 +111,12 @@ void verifySpace() {
 	putch(STK_INSYNC);
 }
 
+int mainb(void){
+	DDRC &= ~(1<<DDC7);
+	// PORTC |= (1 << PORTC7);
+	PORTC &= ~(1<<PORTC7);
+}
+
 int main(void)
 {
 	uint8_t MCUSR_Initial = MCUSR;
@@ -118,26 +124,27 @@ int main(void)
 	MCUSR = 0;
 	WDTCSR |= (1<<WDCE) | (1<<WDE);
 	WDTCSR = 0;
-	
-	
+	/*
 	if (MCUSR_Initial & _BV(WDRF)){
 		/* 
 		* save the reset flags in the designated register
 		* This can be saved in a main program by putting code in .init0 (which
 		* executes before normal c init code) to save R2 to a global variable.
 		*/
+		/*
 		__asm__ __volatile__ ("mov r2, %0\n" :: "r" (MCUSR_Initial));
 		watchdogConfig(WATCHDOG_OFF);
 		programStart();
 	}
-
+	*/
+	
 	register uint16_t address = 0;
 	register uint8_t  length = 0;
 
 	SPI::init();
 	Canbus::init();
 	
-	
+	putch(pgm_read_word(0) & 0xFF);
 	putch(MCUSR_Initial);
 	putch(MCUSR);
 	putch(WDTCSR);
@@ -145,18 +152,20 @@ int main(void)
 	putch(Canbus::msgAvailable());
 	putch(Canbus::ackReceived());
 	
-	flush(false);
+	flush(true);
 
 
-	watchdogConfig(WATCHDOG_2S);
+	//watchdogConfig(WATCHDOG_2S);
 	
+	/*
 	// If no ack received, watchdog will timeout and cause reset
 	while(!Canbus::ackReceived()){
 		asm volatile("nop; \n");
 	}
 	Canbus::clearAck();
+	*/
 	
-	watchdogConfig(WATCHDOG_OFF);
+	//watchdogConfig(WATCHDOG_OFF);
 	putch('C');
 	putch('A');
 	putch('N');
@@ -166,7 +175,13 @@ int main(void)
 	putch('1');
 	
 	flush(false);
-	
+	/*
+	uint8_t ch = 0;
+	for(;;){
+		putch(ch++);
+		//flush(true);
+	}
+	*/
 	
     for(;;)
     {
@@ -285,7 +300,7 @@ void programStart(){
 	// JUMP to 0x0000
 	// Clear Reset bits
 	//wdt_disable();
-	asm volatile("jmp 0x0000");
+	//asm volatile("jmp 0x0000");
 }
 
 // Watchdog functions. These are only safe with interrupts turned off.

@@ -112,7 +112,8 @@ void Canbus::readPacket(uint8_t *buf){
 		buf[i] = SPI::send(0);
 	}
 	DESELECT;
-	sendAck();
+	uint8_t received = buf[4];
+	sendAck(received);
 }
 
 bool Canbus::ackReceived(){
@@ -126,7 +127,7 @@ void Canbus::clearAck(){
 }
 
 // TX Buffer 0 for sending ACK
-void Canbus::sendAck(){
+void Canbus::sendAck(uint8_t byteReceived){
 	SELECT;
 	SPI::send(MCP_LOAD_TX0);
 	// ID
@@ -135,7 +136,8 @@ void Canbus::sendAck(){
 	SPI::send(0);
 	SPI::send(0);
 	// Len
-	SPI::send(0);
+	SPI::send(1);
+	SPI::send(byteReceived);
 	DESELECT;
 	// Request to send
 	SELECT;
