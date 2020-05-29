@@ -10,12 +10,13 @@
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include "stk500.h"
 #include "spi.h"
 #include "Canbus.h"
 
 #define CAN_ID		0x0B1
-#define TXBUFSIZE	10
+#define TXBUFSIZE	8
 #define RXBUFSIZE	130
 #define CANNYFLASH_MAJOR_VER	1
 #define CANNYFLASH_MINOR_VER	0
@@ -32,7 +33,7 @@
 #define WATCHDOG_2S     (_BV(WDP2) | _BV(WDP1) | _BV(WDP0) | _BV(WDE))
 
 int main(void); //__attribute__((section(".init9")));
-void flush(bool ackRequired);
+void flush();
 void putch(uint8_t ch);
 inline void programStart();
 uint8_t getch();
@@ -48,32 +49,29 @@ uint8_t rbufHead=0, rbufTail=0;
 void putch(uint8_t ch){
 	txbuf[txTail] = ch;
 	txTail ++;
-	txTail = (txTail)%TXBUFSIZE;
-	
-	bool canSend = (ch==STK_OK);
-	if (txTail<txHead){
-		canSend |= ((txTail + TXBUFSIZE)-txHead) >=8;
-	}else{
-		canSend |= (txTail - txHead) >=8;
+	if (txTail>=8 || ch==STK_OK){
+		flush();
 	}
+	// txTail = (txTail)%TXBUFSIZE;
+	/*
+	bool canSend = (ch==STK_OK) || (txTail==8);
 	if (canSend)  {
-		flush(true);
+		flush(false);
 	}
+	*/
 }
 
-void flush(bool ackRequired){
-	uint8_t buf[8];
-	uint8_t len = 0;
-	while( (txTail!=txHead) && (len<8)){
-		buf[len] = txbuf[txHead];
-		txHead ++;
-		txHead = (txHead) % TXBUFSIZE;
-		len++;
+void flush(){
+	Canbus::sendPacket(CAN_ID, txbuf, txTail);
+	txTail = 0;
+	for(int i=0;i<1000; i++){
+		asm("nop");
 	}
-	Canbus::sendPacket(CAN_ID, buf, len);
+	/*
 	if (ackRequired)
 		while(!Canbus::ackReceived());
 	Canbus::clearAck();
+	*/
 }
 
 uint8_t getch(){
@@ -111,51 +109,53 @@ void verifySpace() {
 	putch(STK_INSYNC);
 }
 
-int mainb(void){
-	DDRC &= ~(1<<DDC7);
-	// PORTC |= (1 << PORTC7);
-	PORTC &= ~(1<<PORTC7);
-}
-
 int main(void)
 {
 	uint8_t MCUSR_Initial = MCUSR;
 	/* Clear WDRF in MCUSR */
-	MCUSR = 0;
+	//MCUSR &= ~(1<<WDRF);
+	cli();
+	watchdogReset();
+	MCUSR &= ~(1<<WDRF);
 	WDTCSR |= (1<<WDCE) | (1<<WDE);
-	WDTCSR = 0;
-	/*
-	if (MCUSR_Initial & _BV(WDRF)){
+	WDTCSR = 0x00;
+	sei();
+	
+	
+	if ((MCUSR_Initial & (1<<WDRF)) && (pgm_read_word(0) != 0xFFFF)){
 		/* 
 		* save the reset flags in the designated register
 		* This can be saved in a main program by putting code in .init0 (which
 		* executes before normal c init code) to save R2 to a global variable.
 		*/
-		/*
-		__asm__ __volatile__ ("mov r2, %0\n" :: "r" (MCUSR_Initial));
 		watchdogConfig(WATCHDOG_OFF);
+		wdt_reset();
+		__asm__ __volatile__ ("mov r2, %0\n" :: "r" (MCUSR_Initial));
 		programStart();
 	}
-	*/
 	
 	register uint16_t address = 0;
 	register uint8_t  length = 0;
 
 	SPI::init();
 	Canbus::init();
-	
+	putch(0xFF);
+	putch(MCUSR_Initial);
+	putch(MCUSR_Initial & (1<<WDRF));
+	putch(0xFF);
+	flush();
+	/*
 	putch(pgm_read_word(0) & 0xFF);
 	putch(MCUSR_Initial);
 	putch(MCUSR);
 	putch(WDTCSR);
 	putch(WDRF);
 	putch(Canbus::msgAvailable());
-	putch(Canbus::ackReceived());
 	
-	flush(true);
+	flush();
+	*/
 
-
-	//watchdogConfig(WATCHDOG_2S);
+	watchdogConfig(WATCHDOG_2S);
 	
 	/*
 	// If no ack received, watchdog will timeout and cause reset
@@ -165,7 +165,6 @@ int main(void)
 	Canbus::clearAck();
 	*/
 	
-	//watchdogConfig(WATCHDOG_OFF);
 	putch('C');
 	putch('A');
 	putch('N');
@@ -173,19 +172,17 @@ int main(void)
 	putch('Y');
 	putch('v');
 	putch('1');
+	putch('!');
 	
-	flush(false);
-	/*
-	uint8_t ch = 0;
-	for(;;){
-		putch(ch++);
-		//flush(true);
-	}
-	*/
+	flush();
+	
+	while (getch()!=0x20);
+	
+	watchdogConfig(WATCHDOG_OFF);
+	wdt_reset();
 	
     for(;;)
     {
-		
 		uint8_t ch = getch();
 		if (ch==STK_GET_SYNC) {
 			verifySpace();
@@ -260,13 +257,14 @@ int main(void)
 			// Read command terminator, start reply
 			verifySpace();
 		} else if(ch == STK_READ_PAGE) {
-			length = getch() << 8;
-			length += getch();
+			getch();
+			//length = getch() << 8;
+			length = getch();
 
 			getch(); // Must be flash, ignore
-
 			verifySpace();
 			for(uint8_t i=0; i<length; i++){
+//				putch(txTail);
 				putch(pgm_read_byte_near(address+i));
 			}
 		} else if(ch == STK_READ_SIGN) {
@@ -299,8 +297,7 @@ void programStart(){
 	// Clear watchdog timer
 	// JUMP to 0x0000
 	// Clear Reset bits
-	//wdt_disable();
-	//asm volatile("jmp 0x0000");
+	asm volatile("jmp 0x0000");
 }
 
 // Watchdog functions. These are only safe with interrupts turned off.
@@ -311,11 +308,12 @@ void watchdogReset() {
 }
 
 void watchdogConfig(uint8_t x) {
+	cli();
 	#ifdef WDCE //does it have a Watchdog Change Enable?
 	#ifdef WDTCSR
-	WDTCSR = _BV(WDCE) | _BV(WDE);
+	WDTCSR |= _BV(WDCE) | _BV(WDE);
 	#else
-	WDTCR= _BV(WDCE) | _BV(WDE);
+	WDTCR |= _BV(WDCE) | _BV(WDE);
 	#endif
 	#else //then it must be one of those newfangled ones that use CCP
 	CCP=0xD8; //so write this magic number to CCP
@@ -325,4 +323,5 @@ void watchdogConfig(uint8_t x) {
 	#else
 	WDTCR= x;
 	#endif
+	sei();
 }

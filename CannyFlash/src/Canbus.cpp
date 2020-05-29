@@ -33,11 +33,12 @@ void Canbus::init(){
 	}
 	
 	// RX buffer 0 enable filter 0
-	setRegister(MCP_RXB0CTRL, 0);
+	setRegister(MCP_RXB0CTRL, MCP_RXB_RX_ANY);
 	// RX Buffer 1 disalbe filter
-	setRegister(MCP_RXB1CTRL, MCP_RXB_RX_ANY);
+	// setRegister(MCP_RXB1CTRL, MCP_RXB_RX_ANY);
 	
 	// Filter and mask 0, accept only ACK messages (ID: 0x7AC)
+	/*
 	setRegister(MCP_RXF0SIDH, ACCEPT_ACK_SIDH);
 	setRegister(MCP_RXF0SIDL, ACCEPT_ACK_SIDL);
 	setRegister(MCP_RXM0SIDH, 0xFF);
@@ -49,6 +50,7 @@ void Canbus::init(){
 	for (uint8_t i=0; i<6; i++){
 		setRegister(MCP_RXF1SIDH+i, 0xFF);
 	}
+	*/
 	
 	// Disable all interrupt
 	setRegister(MCP_CANINTE, 0);
@@ -73,13 +75,13 @@ uint8_t Canbus::readStatus(void){
 }
 
 bool Canbus::msgAvailable(){
-	return readStatus() & MCP_STAT_RX1IF;
+	return readStatus() & MCP_STAT_RX0IF;
 }
 
 // TX Buffer 1 for sending data packet
 void Canbus::sendPacket(uint16_t id, uint8_t *buf, uint8_t len){
 	SELECT;
-	SPI::send(MCP_LOAD_TX1);
+	SPI::send(MCP_LOAD_TX0);
 	// ID
 	SPI::send(id>>3 & 0xFF);
 	SPI::send(id<<5);
@@ -93,57 +95,24 @@ void Canbus::sendPacket(uint16_t id, uint8_t *buf, uint8_t len){
 	DESELECT;
 	// Request to SPI::send
 	SELECT;
-	SPI::send(MCP_RTS_TX1);
+	SPI::send(MCP_RTS_TX0);
 	DESELECT;
 
 	// Wait until sent
-	SELECT;
+	//SELECT;
 	uint8_t status = readStatus();
-	DESELECT;
-	while (!(status & MCP_STAT_TX1IF)){
+	//DESELECT;
+	while (!(status & MCP_STAT_TX0IF)){
 		status = readStatus();
 	}
 }
 
 void Canbus::readPacket(uint8_t *buf){
 	SELECT;
-	SPI::send(MCP_READ_RX1);
+	SPI::send(MCP_READ_RX0);
 	for(uint8_t i=0; i<13; i++){
 		buf[i] = SPI::send(0);
 	}
 	DESELECT;
 	uint8_t received = buf[4];
-	sendAck(received);
 }
-
-bool Canbus::ackReceived(){
-	return (readStatus() & MCP_STAT_RX0IF);
-}
-
-void Canbus::clearAck(){
-	SELECT;
-	SPI::send(MCP_READ_RX0);
-	DESELECT;
-}
-
-// TX Buffer 0 for sending ACK
-void Canbus::sendAck(uint8_t byteReceived){
-	SELECT;
-	SPI::send(MCP_LOAD_TX0);
-	// ID
-	SPI::send(ACK_SIDH);
-	SPI::send(ACK_SIDL);
-	SPI::send(0);
-	SPI::send(0);
-	// Len
-	SPI::send(1);
-	SPI::send(byteReceived);
-	DESELECT;
-	// Request to send
-	SELECT;
-	SPI::send(MCP_RTS_TX0);
-	DESELECT;
-	// Wait until sent
-	while (!(readStatus() & MCP_STAT_TX0IF));
-}
-
