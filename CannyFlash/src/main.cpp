@@ -15,12 +15,6 @@
 #include "spi.h"
 #include "Canbus.h"
 
-#define CAN_ID		0x0B1
-#define TXBUFSIZE	8
-#define RXBUFSIZE	130
-#define CANNYFLASH_MAJOR_VER	1
-#define CANNYFLASH_MINOR_VER	0
-
 /* Watchdog settings */
 #define WATCHDOG_OFF    (0)
 #define WATCHDOG_16MS   (_BV(WDE))
@@ -32,7 +26,11 @@
 #define WATCHDOG_1S     (_BV(WDP2) | _BV(WDP1) | _BV(WDE))
 #define WATCHDOG_2S     (_BV(WDP2) | _BV(WDP1) | _BV(WDP0) | _BV(WDE))
 
-int main(void); //__attribute__((section(".init9")));
+static const char password[] 
+	__attribute__((used, section(".password"))) 
+	 = "00000000";
+	
+int main(void) ; //__attribute__((OS_main)) ; //__attribute__((section(".init9")));
 void flush();
 void putch(uint8_t ch);
 inline void programStart();
@@ -139,12 +137,12 @@ int main(void)
 
 	SPI::init();
 	Canbus::init();
+	/*
 	putch(0xFF);
 	putch(MCUSR_Initial);
 	putch(MCUSR_Initial & (1<<WDRF));
 	putch(0xFF);
 	flush();
-	/*
 	putch(pgm_read_word(0) & 0xFF);
 	putch(MCUSR_Initial);
 	putch(MCUSR);
@@ -176,7 +174,32 @@ int main(void)
 	
 	flush();
 	
-	while (getch()!=0x20);
+	address = 0x7f80;
+	/*
+	for(uint8_t i=0;i<8; i++){
+		putch(pgm_read_byte_near(address+i));
+	}
+	*/
+	
+	uint8_t pwBuffer[8];
+	// Enter Password
+	for(uint8_t i=0; i<8; i++){
+		pwBuffer[i] = getch();
+	}
+	
+	for (uint8_t i=0; i<8; i++){
+		if (pgm_read_byte_near(address+i) != pwBuffer[i]) {
+			putch(STK_NOSYNC);
+			putch(STK_OK);
+			// This code would never sent, just to trick the compiler
+			putch(password[i]);
+			for(;;);
+		}
+	}
+	
+	// Password accepted
+	putch(STK_INSYNC);
+	putch(STK_OK);
 	
 	watchdogConfig(WATCHDOG_OFF);
 	wdt_reset();
@@ -280,8 +303,25 @@ int main(void)
 			verifySpace();
 		} else if (ch==0xFF){
 			while(getch()!=0x20);
-		}
-		else {
+		} else if (ch=='z'){
+			// Change password - Extended method from standard STK500
+			for(uint8_t i=0;i<8; i++){
+				pwBuffer[i] = getch();
+			}
+			verifySpace();
+			
+			eeprom_busy_wait();
+			boot_page_erase (address);
+			boot_spm_busy_wait ();      // Wait until the memory is erased.
+			for (uint8_t i=0; i<8; i+=2)
+			{
+				uint16_t w = (pwBuffer[i+1] << 8) + pwBuffer[i];
+				boot_page_fill (address + i, w);
+			}
+			boot_page_write (address);     // Store buffer in flash page.
+			boot_spm_busy_wait();
+			boot_rww_enable ();
+		} else {
 			// This covers the response to commands like STK_ENTER_PROGMODE
 			verifySpace();
 		}

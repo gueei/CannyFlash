@@ -29,13 +29,6 @@
 #define SELECT		MCP_CS_PORT &= ~_BV(MCP_CS_PIN)
 #define DESELECT	MCP_CS_PORT |= _BV(MCP_CS_PIN)
 
-#define ACK_ID			0x1AC
-#define ACK_SIDH		(ACK_ID >> 3) & 0xFF
-#define ACK_SIDL		(ACK_ID << 5) & 0xFF
-#define ACCEPT_ACK_ID	0x2AC
-#define ACCEPT_ACK_SIDH	(ACCEPT_ACK_ID >> 3) & 0xFF
-#define ACCEPT_ACK_SIDL	(ACCEPT_ACK_ID << 5) & 0xFF
-
 class Canbus{
 	public:
 		static void init();

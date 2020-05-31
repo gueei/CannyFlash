@@ -189,6 +189,7 @@
   <avrgcccpp.linker.memorysettings.Flash>
     <ListValues>
       <Value>.text=0x3800</Value>
+      <Value>.password=0x3fC0</Value>
     </ListValues>
   </avrgcccpp.linker.memorysettings.Flash>
   <avrgcccpp.assembler.general.IncludePaths>

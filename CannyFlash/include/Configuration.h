@@ -43,5 +43,14 @@
 #define MCP_CS_PIN		6
 #endif
 
+#define CAN_ID		0x0B1
+#define TXBUFSIZE	8
+#define RXBUFSIZE	130
+#define CANNYFLASH_MAJOR_VER	1
+#define CANNYFLASH_MINOR_VER	0
+#define ACCEPT_ID	0x1CF
+#define ACCEPT_ID_SIDH (ACCEPT_ID >> 3) & 0xFF
+#define ACCEPT_ID_SIDL (ACCEPT_ID << 5) & 0xFF
+
 
 #endif /* CONFIGURATION_H_ */

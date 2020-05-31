@@ -33,14 +33,11 @@ void Canbus::init(){
 	}
 	
 	// RX buffer 0 enable filter 0
-	setRegister(MCP_RXB0CTRL, MCP_RXB_RX_ANY);
-	// RX Buffer 1 disalbe filter
-	// setRegister(MCP_RXB1CTRL, MCP_RXB_RX_ANY);
+	setRegister(MCP_RXB0CTRL, 0);
 	
-	// Filter and mask 0, accept only ACK messages (ID: 0x7AC)
-	/*
-	setRegister(MCP_RXF0SIDH, ACCEPT_ACK_SIDH);
-	setRegister(MCP_RXF0SIDL, ACCEPT_ACK_SIDL);
+	// Filter and mask 0, accept only Canny Flash V1
+	setRegister(MCP_RXF0SIDH, ACCEPT_ID_SIDH);
+	setRegister(MCP_RXF0SIDL, ACCEPT_ID_SIDL);
 	setRegister(MCP_RXM0SIDH, 0xFF);
 	setRegister(MCP_RXM0SIDL, 0xE0);
 	setRegister(MCP_RXM0EID8, 0x00);
@@ -50,7 +47,6 @@ void Canbus::init(){
 	for (uint8_t i=0; i<6; i++){
 		setRegister(MCP_RXF1SIDH+i, 0xFF);
 	}
-	*/
 	
 	// Disable all interrupt
 	setRegister(MCP_CANINTE, 0);
@@ -114,5 +110,5 @@ void Canbus::readPacket(uint8_t *buf){
 		buf[i] = SPI::send(0);
 	}
 	DESELECT;
-	uint8_t received = buf[4];
+	// uint8_t received = buf[4];
 }
