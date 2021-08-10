@@ -25,10 +25,12 @@
 #define WATCHDOG_500MS  (_BV(WDP2) | _BV(WDP0) | _BV(WDE))
 #define WATCHDOG_1S     (_BV(WDP2) | _BV(WDP1) | _BV(WDE))
 #define WATCHDOG_2S     (_BV(WDP2) | _BV(WDP1) | _BV(WDP0) | _BV(WDE))
+#define WATCHDOG_4S     (_BV(WDP3) | _BV(WDE))
+#define WATCHDOG_8S     (_BV(WDP3) | _BV(WDP0) | _BV(WDE))
 
 static const char password[] 
 	__attribute__((used, section(".password"))) 
-	 = "00000000";
+	 = PASSWORD;
 	
 int main(void) ; //__attribute__((OS_main)) ; //__attribute__((section(".init9")));
 void flush();
@@ -60,6 +62,7 @@ void putch(uint8_t ch){
 }
 
 void flush(){
+	//if (txTail == 0) return;
 	Canbus::sendPacket(CAN_ID, txbuf, txTail);
 	txTail = 0;
 	for(int i=0;i<1000; i++){
@@ -174,7 +177,7 @@ int main(void)
 	
 	flush();
 	
-	address = 0x7f80;
+	address = PASSWORD_ADDRESS;
 	/*
 	for(uint8_t i=0;i<8; i++){
 		putch(pgm_read_byte_near(address+i));
@@ -287,7 +290,7 @@ int main(void)
 			getch(); // Must be flash, ignore
 			verifySpace();
 			for(uint8_t i=0; i<length; i++){
-//				putch(txTail);
+				//putch(txTail);
 				putch(pgm_read_byte_near(address+i));
 			}
 		} else if(ch == STK_READ_SIGN) {
