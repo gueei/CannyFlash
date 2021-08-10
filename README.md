@@ -11,11 +11,13 @@ First need to prepare Arduino ISP, and wire as following instruction:
 https://www.arduino.cc/en/Tutorial/BuiltInExamples/ArduinoISP
 
 Next reset fuse on Target Device. (following for Leonardo)
+
     avrdude -C{ArduinoDirectory}/tools/avrdude/6.3.0-arduino17/etc/avrdude.conf" -v -patmega32u4 -cstk500v1 -P{COM_Port} -b19200 -e -Ulock:w:0x3F:m -Uefuse:w:0xcb:m -Uhfuse:w:0xd8:m -Ulfuse:w:0xff:m
     
 You can also turn on verbose in Arduino IDE (Preferences -> Show Verbose Output during -> Upload), copy and modify the command while uploading some sketch in Arduino
 
 Finally upload bootloader using following command:
+
     avrdude -C{ArduinoDirectory}/tools/avrdude/6.3.0-arduino17/etc/avrdude.conf" -v -V -patmega32u4 -cstk500v1 -P{COM_Port} -b19200 -Uflash:w:{CannyFlash_Bootloader.hex}:i -Ulock:w:0x2F:m
 
 Your device can now flash via CANBus!
