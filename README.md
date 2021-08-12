@@ -2,7 +2,7 @@
 Bootloader that allows flashing Arduino device via onboard CAN Interface (MCP2515)
 
 ## Current status
-Compiled Bootloader stored in [CannyFlash/bin](CannyFlash/bin)
+Compiled Bootloader stored in [CannyFlash/Bootloader_bin](CannyFlash/bin)
 
 Only Atmega32u4 (Arduino Leonardo) (tested) 
 Atmega328P (UNO) - developing
