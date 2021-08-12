@@ -52,27 +52,15 @@ void putch(uint8_t ch){
 	if (txTail>=8 || ch==STK_OK){
 		flush();
 	}
-	// txTail = (txTail)%TXBUFSIZE;
-	/*
-	bool canSend = (ch==STK_OK) || (txTail==8);
-	if (canSend)  {
-		flush(false);
-	}
-	*/
 }
 
 void flush(){
-	//if (txTail == 0) return;
+	if (txTail == 0) return;
 	Canbus::sendPacket(CAN_ID, txbuf, txTail);
 	txTail = 0;
 	for(int i=0;i<1000; i++){
 		asm("nop");
 	}
-	/*
-	if (ackRequired)
-		while(!Canbus::ackReceived());
-	Canbus::clearAck();
-	*/
 }
 
 uint8_t getch(){
@@ -122,7 +110,6 @@ int main(void)
 	WDTCSR = 0x00;
 	sei();
 	
-	
 	if ((MCUSR_Initial & (1<<WDRF)) && (pgm_read_word(0) != 0xFFFF)){
 		/* 
 		* save the reset flags in the designated register
@@ -140,31 +127,9 @@ int main(void)
 
 	SPI::init();
 	Canbus::init();
-	/*
-	putch(0xFF);
-	putch(MCUSR_Initial);
-	putch(MCUSR_Initial & (1<<WDRF));
-	putch(0xFF);
-	flush();
-	putch(pgm_read_word(0) & 0xFF);
-	putch(MCUSR_Initial);
-	putch(MCUSR);
-	putch(WDTCSR);
-	putch(WDRF);
-	putch(Canbus::msgAvailable());
-	
-	flush();
-	*/
 
-	watchdogConfig(WATCHDOG_2S);
-	
-	/*
-	// If no ack received, watchdog will timeout and cause reset
-	while(!Canbus::ackReceived()){
-		asm volatile("nop; \n");
-	}
-	Canbus::clearAck();
-	*/
+	// Normal boot after 0.5s - no password received
+	watchdogConfig(WATCHDOG_500MS);
 	
 	putch('C');
 	putch('A');
@@ -178,11 +143,6 @@ int main(void)
 	flush();
 	
 	address = PASSWORD_ADDRESS;
-	/*
-	for(uint8_t i=0;i<8; i++){
-		putch(pgm_read_byte_near(address+i));
-	}
-	*/
 	
 	uint8_t pwBuffer[8];
 	// Enter Password
@@ -301,29 +261,10 @@ int main(void)
 			putch(SIGNATURE_2);
 		}
 		else if (ch == STK_LEAVE_PROGMODE) { 
-			// Adaboot no-wait mod
 			watchdogConfig(WATCHDOG_16MS);
 			verifySpace();
 		} else if (ch==0xFF){
 			while(getch()!=0x20);
-		} else if (ch=='z'){
-			// Change password - Extended method from standard STK500
-			for(uint8_t i=0;i<8; i++){
-				pwBuffer[i] = getch();
-			}
-			verifySpace();
-			
-			eeprom_busy_wait();
-			boot_page_erase (address);
-			boot_spm_busy_wait ();      // Wait until the memory is erased.
-			for (uint8_t i=0; i<8; i+=2)
-			{
-				uint16_t w = (pwBuffer[i+1] << 8) + pwBuffer[i];
-				boot_page_fill (address + i, w);
-			}
-			boot_page_write (address);     // Store buffer in flash page.
-			boot_spm_busy_wait();
-			boot_rww_enable ();
 		} else {
 			// This covers the response to commands like STK_ENTER_PROGMODE
 			verifySpace();

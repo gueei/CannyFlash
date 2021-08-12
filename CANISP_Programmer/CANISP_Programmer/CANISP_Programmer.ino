@@ -1,6 +1,10 @@
 #include <SPI.h>
 #include <mcp2515.h>
-#define MP_PIN  3
+
+#define SHORT 167, 333
+#define LONG  333, 167
+
+#define MP_PIN  7
 #define LED_PIN 13
 
 struct can_frame msg, rxmsg;
@@ -11,37 +15,69 @@ MCP2515 mcp2515(10);
 char magicPacket[] = "CANNYv1!";
 char password[] = "12345678";
 
+int pat_enter_packet[] = {LONG, LONG, LONG};
+// Moose code AC
+int pat_mp_accepted[] = {SHORT, LONG, LONG, SHORT, LONG, SHORT};
+
+int pat_error[] = {SHORT, LONG};
+
+int state = 0;
+
 void setup() {
-  pinMode(MP_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
-  // while (!Serial);
-  Serial.begin(57600);
   
   while(mcp2515.reset()!= MCP2515::ERROR_OK){
-    Serial.println("Error in reset");
-    delay(1000);
+    blinkPattern(pat_error, 2);
   }
   mcp2515.setBitrate(CAN_500KBPS, MCP_16MHZ);
   mcp2515.setNormalMode();
+
+  //blinkPattern(pat_enter_packet, 6);
+  digitalWrite(LED_PIN, HIGH);
 }
 
-void waitMagicPacket(){
+void loop() {
+  if (state==0)
+    state_magicPacket();
+  else
+    state_isp();
+}
+
+void state_magicPacket(){
+  bool mp = waitMagicPacket();
+  if (mp){
+    for(int i=0; i<8; i++){
+      cansend(password[i]);
+    }
+    canFlush();
+    serial_flush_buffer();
+    digitalWrite(LED_PIN, LOW);
+    blinkPattern(pat_mp_accepted, 12);
+    state = 1;
+    while(!Serial){}
+    Serial.begin(19200);
+  }
+  digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+  delay(100);
+  digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+  delay(100);
+}
+
+bool waitMagicPacket(){
   if (mcp2515.readMessage(&rxmsg) == MCP2515::ERROR_OK) {
     bool correct = false;
     if (rxmsg.can_dlc == 8){
+      canFlush();
       correct = true;
       for (int i=0; i<8; i++){
         if (rxmsg.data[i] != magicPacket[i]) correct = false;
       }
     }
     if (correct){
-      for(int i=0; i<8; i++){
-        cansend(password[i]);
-      }
-      canFlush();
-      serial_flush_buffer();
+      return true;
     }
   }
+  return false;
 }
 
 void serial_flush_buffer()
@@ -50,13 +86,7 @@ void serial_flush_buffer()
    ; // do nothing
 }
 
-void loop() {
-  if (digitalRead(MP_PIN)==LOW){
-    waitMagicPacket();
-    digitalWrite(LED_PIN, HIGH);
-  }else{
-    digitalWrite(LED_PIN, LOW);
-  }
+void state_isp(){
   if (Serial.available()){
     uint8_t data = Serial.read();
     cansend(data);
@@ -65,6 +95,7 @@ void loop() {
     Serial.write(rxmsg.data, rxmsg.can_dlc);
   }
 }
+
 
 void cansend(uint8_t c){
   buf[bufTail] = c;
@@ -83,4 +114,11 @@ void canFlush(){
   }
   mcp2515.sendMessage(&msg);
   bufTail = 0;
+}
+
+void blinkPattern(int pat[], int len){
+  for (int i=0; i<len; i++){
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    delay(pat[i]);
+  }
 }
