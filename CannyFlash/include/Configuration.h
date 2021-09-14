@@ -9,8 +9,8 @@
 #ifndef CONFIGURATION_H_
 #define CONFIGURATION_H_
 
-//#define MCP2515_CLOCK_8MHz
-#define MCP2515_CLOCK_16MHz
+#define MCP2515_CLOCK_8MHz
+// #define MCP2515_CLOCK_16MHz
 
 
 #if defined (__AVR_ATmega328P__)
